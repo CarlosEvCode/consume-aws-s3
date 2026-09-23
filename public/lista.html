@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Archivos S3</title>
+</head>
+<body>
+    <h1>Lista de Archivos</h1>
+    <p><a href="/">Subir otro archivo</a></p>
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Nombre</th>
+                <th>Tamaño (bytes)</th>
+                <th>Fecha</th>
+            </tr>
+        </thead>
+        <tbody id="tabla"></tbody>
+    </table>
+
+    <script>
+        fetch('/api/lista')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('tabla');
+                tbody.innerHTML = data.archivos.map(a => `
+                    <tr>
+                        <td>${a.nombre}</td>
+                        <td>${a.tamanio}</td>
+                        <td>${new Date(a.fecha).toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            });
+    </script>
+</body>
+</html>

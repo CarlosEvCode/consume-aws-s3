@@ -4,9 +4,11 @@ const dotenv = require('dotenv');
 const path = require('path');
 
 //Solicitud de los servicios de AWS S3 (Subir archivos a S3)
+//Otorgar nuevo permiso (lectura)
 const {
     S3Client,
-    PutObjectCommand
+    PutObjectCommand,
+    ListObjectsV2Command,
 } = require('@aws-sdk/client-s3');
 
 //Cargar variables de entorno
@@ -27,6 +29,7 @@ const upload = multer({
 })
 
 //Cliente S3
+//forcePathStyle: true => modo compatibilidad
 const s3Client = new S3Client({
     region: process.env.AWS_REGION,
     endpoint: process.env.AWS_ENDPOINT_URL,
@@ -44,6 +47,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+//Ruta para listar archivos => http://localhost:3000/list
+app.get('/list', async (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'lista.html'));
+})
+
 
 //Ruta para subir archivos
 app.post('/upload', upload.single('archivo'), async (req, res) => {
@@ -94,6 +103,49 @@ app.post('/upload', upload.single('archivo'), async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error al subir el archivo',
+            error: e.message
+        })
+    }
+})
+
+//Ruta para listar archivos
+app.get('/api/lista', async (req, res) => {
+    try {
+        //Comando para leer los archivos
+        const command = new ListObjectsV2Command({
+            Bucket: BUCKET,
+            Prefix: PREFIX
+        });
+
+        //Consulta a S3
+        const response = await s3Client.send(command);
+
+        //Si no existen los archivos
+        //1 () : Retorna un arreglo incluso si no hay archivos
+        //2 () : Filtra la coleccion
+        //3 () : Retorna los datos ya filtrados
+        const archivos = (response.Contents || [])
+        .filter(objecto => objecto.Key !== PREFIX) // Filtrar el prefijo
+        .map(objeto => ({
+            nombre: objeto.Key.replace(PREFIX, ''),
+            key: objeto.Key,
+            tamanio: objeto.Size,
+            fecha: objeto.LastModified
+        }))
+
+        res.json({
+            success: true,
+            bucket: BUCKET,
+            prefijo: PREFIX,
+            total: archivos.length,
+            archivos: archivos
+        });
+
+    }catch (e) {
+        console.error(`Error al listar los archivos: `, e);
+        res.status(500).json({
+            success: false,
+            message: 'Error al listar los archivos',
             error: e.message
         })
     }
