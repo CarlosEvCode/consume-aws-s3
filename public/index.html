@@ -4,14 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subir Archivos</title>
+    <style>
+        body {
+            background: #ffffff;
+            color: #111111;
+            font-family: monospace;
+            padding: 20px;
+        }
+        a {
+            color: #0066cc;
+        }
+        form {
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            display: inline-block;
+        }
+        input[type="file"] {
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        button {
+            background: #ffffff;
+            border: 1px solid #0066cc;
+            color: #0066cc;
+            font-family: monospace;
+            padding: 6px 12px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0066cc;
+            color: #ffffff;
+        }
+    </style>
 </head>
 <body>
-    <h1>Subir Archivos a S3</h1>
+    <h2>Subir Archivos a S3</h2>
     <p><a href="/list">Ver archivos subidos</a></p>
+
     <form action="/upload" method="POST" enctype="multipart/form-data">
-        <label for="archivo">Selecciona un archivo:</label>
-        <input type="file" id="archivo" name="archivo" required>
-        <button type="submit">Enviar</button>
+        <label for="archivo">Selecciona un archivo:</label><br>
+        <input type="file" id="archivo" name="archivo" required><br>
+        <button type="submit">Subir archivo</button>
     </form>
 </body>
 </html>

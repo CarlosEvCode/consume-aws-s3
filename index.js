@@ -9,7 +9,17 @@ const {
     S3Client,
     PutObjectCommand,
     ListObjectsV2Command,
+    DeleteObjectCommand,
+    GetObjectCommand,
 } = require('@aws-sdk/client-s3');
+
+//DynamoDB - Servicio de base de datos NoSQL
+const {
+    DynamoDBClient,
+    PutItemCommand,
+} = require('@aws-sdk/client-dynamodb');
+
+
 
 //Cargar variables de entorno
 dotenv.config();
@@ -40,6 +50,16 @@ const s3Client = new S3Client({
     forcePathStyle: true, // Necesario para LocalStack
 })
 
+//Cliente DynamoDB 
+const dynamoDBClient = new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    endpoint: process.env.AWS_ENDPOINT_URL,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+});
+
 //Archivo estatico aplicacion => Frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -53,7 +73,7 @@ app.get('/list', async (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'lista.html'));
 })
 
-
+//DynamoDB : almacena los metadatos de los archivos subidos a S3
 //Ruta para subir archivos
 app.post('/upload', upload.single('archivo'), async (req, res) => {
     try {
@@ -88,6 +108,24 @@ app.post('/upload', upload.single('archivo'), async (req, res) => {
         await s3Client.send(command);
 
         console.log(`Archivo subido a S3: ${key}`);
+
+        //Tambien utilizaremos DynamoDB (METADATOS)
+        const id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`; // Generar un ID único
+        const dynamoCommand = new PutItemCommand({
+            TableName: process.env.AWS_DYNAMODB_TABLE,
+            Item: {
+                id: { S: id },
+                nombre: { S: fileName },
+                tipo: { S: req.file.mimetype },
+                tamanio: { N: req.file.size.toString() },
+                fecha: { S: new Date().toISOString() },
+                s3_key: { S: key }
+            }
+        });
+
+        //Ejecutar el comando para guardar los metadatos en DynamoDB
+        await dynamoDBClient.send(dynamoCommand);
+        console.log("Registro creado en DynamoDB con ID:", id);
 
         //Respuesta al cliente
         res.json({
@@ -150,6 +188,34 @@ app.get('/api/lista', async (req, res) => {
         })
     }
 })
+
+//Ruta para eliminar archivo de S3
+app.delete('/api/eliminar', async (req, res) => {
+    try {
+        await s3Client.send(new DeleteObjectCommand({
+            Bucket: BUCKET,
+            Key: req.query.key
+        }));
+        res.json({ success: true, message: 'Archivo eliminado correctamente' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+//Ruta para descargar archivo de S3
+app.get('/api/descargar', async (req, res) => {
+    try {
+        const response = await s3Client.send(new GetObjectCommand({
+            Bucket: BUCKET,
+            Key: req.query.key
+        }));
+        const fileName = req.query.key.split('/').pop();
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        response.Body.pipe(res);
+    } catch (e) {
+        res.status(500).send('Error al descargar el archivo');
+    }
+});
 
 //Iniciar el servidor
 app.listen(PORT, () => {
