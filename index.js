@@ -13,14 +13,6 @@ const {
     GetObjectCommand,
 } = require('@aws-sdk/client-s3');
 
-//DynamoDB - Servicio de base de datos NoSQL
-const {
-    DynamoDBClient,
-    PutItemCommand,
-} = require('@aws-sdk/client-dynamodb');
-
-
-
 //Cargar variables de entorno
 dotenv.config();
 
@@ -36,7 +28,7 @@ const PREFIX = process.env.AWS_S3_PREFIX || '';
 //Backend conservara una copia de manera temporal
 const upload = multer({
     storage: multer.memoryStorage(),
-})
+});
 
 //Cliente S3
 //forcePathStyle: true => modo compatibilidad
@@ -48,19 +40,7 @@ const s3Client = new S3Client({
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     },
     forcePathStyle: true, // Necesario para LocalStack
-})
-
-//Cliente DynamoDB 
-const dynamoDBClient = new DynamoDBClient({
-    region: process.env.AWS_REGION,
-    endpoint: process.env.AWS_ENDPOINT_URL,
-    credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    }
 });
-
-//Archivo estatico aplicacion => Frontend
 app.use(express.static(path.join(__dirname, 'public')));
 
 //Ruta => http://localhost:3000/
@@ -73,7 +53,6 @@ app.get('/list', async (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'lista.html'));
 })
 
-//DynamoDB : almacena los metadatos de los archivos subidos a S3
 //Ruta para subir archivos
 app.post('/upload', upload.single('archivo'), async (req, res) => {
     try {
@@ -102,30 +81,12 @@ app.post('/upload', upload.single('archivo'), async (req, res) => {
             Key: key,
             Body: req.file.buffer,
             ContentType: req.file.mimetype
-        })
+        });
 
         //Ejecutar el comando para subir el archivo
         await s3Client.send(command);
 
         console.log(`Archivo subido a S3: ${key}`);
-
-        //Tambien utilizaremos DynamoDB (METADATOS)
-        const id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`; // Generar un ID único
-        const dynamoCommand = new PutItemCommand({
-            TableName: process.env.AWS_DYNAMODB_TABLE,
-            Item: {
-                id: { S: id },
-                nombre: { S: fileName },
-                tipo: { S: req.file.mimetype },
-                tamanio: { N: req.file.size.toString() },
-                fecha: { S: new Date().toISOString() },
-                s3_key: { S: key }
-            }
-        });
-
-        //Ejecutar el comando para guardar los metadatos en DynamoDB
-        await dynamoDBClient.send(dynamoCommand);
-        console.log("Registro creado en DynamoDB con ID:", id);
 
         //Respuesta al cliente
         res.json({
