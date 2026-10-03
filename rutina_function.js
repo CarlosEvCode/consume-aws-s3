@@ -16,8 +16,7 @@ exports.handler = async () => {
     const data = await s3Client.send(new ListObjectsV2Command({ Bucket: BUCKET }));
     const total = (data.Contents || []).length;
 
-    console.log(`[RUTINA S3] Fecha: ${new Date().toISOString()} | Total archivos en ${BUCKET}:
-  ${total}`);
+    console.log(`[RUTINA S3] Fecha: ${new Date().toISOString()} | Total archivos en ${BUCKET}: ${total}`);
 
     return { total };
 };
